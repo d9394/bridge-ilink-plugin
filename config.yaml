@@ -1,0 +1,11 @@
+bridge_url: "ws://127.0.0.1:8765"
+app_id: "ilink_main"
+app_secret: "xxxxxxxx"
+app_version: "1"
+mode: "upstream"
+enabled: true
+
+wechat_reminder:
+  reminder_hours: [22, 23]
+  reminder_message: "⏰ 此对话已超过{hours}小时未活跃，请发送消息以维持通道。"
+  check_interval: 60
