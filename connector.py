@@ -94,12 +94,24 @@ async def main():
     )
     os.makedirs(data_dir, exist_ok=True)
     data_file = os.path.join(data_dir, f"{app_id}_reminders.json")
-    
+
+    async def send_reminder(user_id, message, context_token):
+        if ilink_sender is None:
+            logger.warning("Cannot send reminder: iLink sender not initialized")
+            return
+        try:
+            logger.info("Sending reminder to %s: %.60s", user_id, message)
+            ok = await ilink_sender.send_text(user_id, message, context_token)
+            logger.info("Send reminder to %s result: %s", user_id, ok)
+        except Exception as e:
+            logger.error("Send reminder error: %s", e)
+
     reminder_scheduler = WeChatReminderScheduler(
         data_file=data_file,
         reminder_hours=reminder_config.get("reminder_hours", [22, 23]),
         reminder_message=reminder_config.get("reminder_message", "⏰ 此对话已超过{hours}小时未活跃，请发送消息以维持通道。"),
         check_interval=reminder_config.get("check_interval", 60),
+        on_send_reminder=send_reminder,
         log_fn=lambda m: logger.info("[reminder] %s", m),
     )
 
@@ -176,7 +188,6 @@ async def main():
                             on_message=lambda msg: _on_ilink_message(ws, msg, logger, reminder_scheduler),
                         )
 
-                    reminder_scheduler.on_send_reminder = lambda user_id, message, context_token: _send_reminder_via_bridge(ws, user_id, message, context_token, logger)
                     if not reminder_scheduler._running:
                         await reminder_scheduler.start()
 
@@ -283,21 +294,6 @@ async def _handle_typing(data: dict, sender: ILinkSender, logger: logging.Logger
     to_user = data.get("to", "")
     if to_user:
         await sender.send_typing(to_user)
-
-
-async def _send_reminder_via_bridge(ws: aiohttp.ClientWebSocketResponse, user_id: str, message: str, context_token: str, logger: logging.Logger) -> None:
-    if ws.closed:
-        logger.error("Cannot send reminder: WebSocket is closed")
-        return
-    try:
-        await ws.send_json({
-            "type": "message.send",
-            "to": user_id,
-            "content": message,
-            "context_token": context_token,
-        })
-    except Exception as e:
-        logger.error("Send reminder via bridge error: %s", e)
 
 
 if __name__ == "__main__":

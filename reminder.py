@@ -100,9 +100,11 @@ class WeChatReminderScheduler:
                 if hours_since_last >= hours and hours not in sent_reminders:
                     message = self.reminder_message.replace("{hours}", str(hours))
                     await self._send_reminder(user_id, message, context_token)
-                    if user_id in self._reminders:
-                        self._reminders[user_id]["sent_reminders"].append(hours)
-                    changed = True
+                    cur = self._reminders.get(user_id)
+                    if cur and cur["last_user_message_at"] == last_user_message_at \
+                            and hours not in cur["sent_reminders"]:
+                        cur["sent_reminders"].append(hours)
+                        changed = True
         
         if changed:
             self._save_data()
